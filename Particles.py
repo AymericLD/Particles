@@ -75,7 +75,7 @@ class Bower_StreamFunction(StreamFunction):
 
 @dataclass(frozen=True)
 class Evolution_Particles:
-    """Determine the trajectory of particles in a flow whose streamfunction is given"""
+    """Determine the trajectory of particles in a flow whose streamfunction is given. It is assumed that this streamfunction is periodic in the horizontal direction"""
 
     stream_function: StreamFunction
     time_step: float
@@ -85,6 +85,12 @@ class Evolution_Particles:
     x_max: int
     y_min: int
     y_max: int
+
+    def __post_init__(self) -> None:
+        if not ((self.x_max - self.x_min) % self.stream_function.L == 0):
+            raise ValueError(
+                "Computationnal domain does not have the flow periodicity in the x direction"
+            )
 
     @cached_property
     def initial_conditions(self):
@@ -151,7 +157,7 @@ def main() -> None:
         stream_function=Bower_stream_function,
         time_step=1 / 8,
         t_final=10,
-        particle_number=100000,
+        particle_number=10,
         x_min=0,
         x_max=2 * Bower_stream_function.L,
         y_min=-250,
