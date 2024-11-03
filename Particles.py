@@ -74,13 +74,72 @@ class Bower_StreamFunction(StreamFunction):
 
 
 @dataclass(frozen=True)
+class Bower_StreamFunction_in_moving_frame(StreamFunction):
+    """Streamfunction given by the Bower Article in the moving frame"""
+
+    psi_0: float
+    A: float
+    L: float
+    width: float
+    c_x: float
+
+    @cached_property
+    def k(self):
+        return 2 * np.pi / self.L
+
+    def y_c(self, x):
+        return self.A * np.sin(self.k * x)
+
+    def alpha(self, x):
+        return np.arctan(self.A * self.k * np.cos(self.k * x))
+
+    def stream_function(self, x, y):
+        return (
+            self.psi_0
+            * (1 - np.tanh((y - self.y_c(x)) / (self.width / np.cos(self.alpha(x)))))
+            + self.c_x * y
+        )
+
+    @cached_property
+    def derivative_verification(self):
+        x, y = sp.symbols("x y")
+        psi_0, A, k, width, c_x = sp.symbols("psi_0 A k width c_x")
+        y_c = A * sp.sin(k * x)
+        alpha = sp.atan(A * k * sp.cos(k * x))
+        psi = psi_0 * (1 - sp.tanh((y - y_c) / (width / sp.cos(alpha))))
+        v = sp.diff(psi, x)
+        u = -sp.diff(psi, y)
+        print("u=", u)
+        print("v=", v)
+
+    @cached_property
+    def derivative(self):
+        x, y, t = sp.symbols("x y t")
+        psi_0, A, k, width, c_x = sp.symbols("psi_0 A k width c_x")
+        y_c = A * sp.sin(k * x)
+        alpha = sp.atan(A * k * sp.cos(k * x))
+        psi = psi_0 * (1 - sp.tanh((y - y_c) / (width / sp.cos(alpha))))
+        v = sp.diff(psi, x)
+        u = -sp.diff(psi, y)
+        v_fixed = v.subs(
+            {psi_0: self.psi_0, A: self.A, k: self.k, width: self.width, c_x: self.c_x}
+        )
+        u_fixed = u.subs(
+            {psi_0: self.psi_0, A: self.A, k: self.k, width: self.width, c_x: self.c_x}
+        )
+        v_func = sp.lambdify((x, y, t), v_fixed, modules=["numpy"])
+        u_func = sp.lambdify((x, y, t), u_fixed, modules=["numpy"])
+        return (u_func, v_func)
+
+
+@dataclass(frozen=True)
 class Evolution_Particles:
     """Determine the trajectory of particles in a flow whose streamfunction is given. It is assumed that this streamfunction is periodic in the horizontal direction"""
 
     stream_function: StreamFunction
     time_step: float
     t_final: float
-    particle_number: int
+    particle_number: float
     x_min: int
     x_max: int
     y_min: int
@@ -126,7 +185,9 @@ class Evolution_Particles:
         nb_points = self.t_final / self.time_step
         t_span = [0, self.t_final]
         t_eval = np.linspace(0, self.t_final, round(nb_points))
-        sol = solve_ivp(fun=self.RHS, t_span=t_span, y0=ic, t_eval=t_eval)
+        sol = solve_ivp(
+            fun=self.RHS, t_span=t_span, y0=ic, method="DOP853", t_eval=t_eval
+        )
         r = sol.y.reshape((self.particle_number, 2, len(t_eval)))
         for i in range(len(t_eval)):
             r[:, :, i] = self.apply_periodic_boundary_conditions(r[:, :, i])
@@ -134,7 +195,14 @@ class Evolution_Particles:
         y = r[:, 1, :]
         return x, y
 
-    def plot_trajectories(self, name: str):
+    def verification_moving_frame(self, x, y):
+        if isinstance(self.stream_function, Bower_StreamFunction_in_moving_frame):
+            psi = self.stream_function.stream_function(x, y)
+            return psi
+        else:
+            raise ValueError("Not a stream function in the moving frame")
+
+    def plot_trajectories(self, name: str, savefig: bool, filepath: str):
         x, y = self.solve_ODE
         fig, ax = plt.subplots()
         ax.set_xlim(self.x_min, self.x_max)
@@ -146,24 +214,35 @@ class Evolution_Particles:
         ax.set_title(
             f"Particle Trajectories (time span={self.t_final} days, time step={self.time_step} days)"
         )
-        plt.savefig(f"Evolution_Lines{name}{self.particle_number}")
+        plt.show()
+        if savefig:
+            plt.savefig(
+                f"{filepath}Evolution_Lines{name}{self.particle_number},{self.t_final}"
+            )
 
 
 def main() -> None:
     Bower_stream_function = Bower_StreamFunction(
         psi_0=4e3, A=50, L=400, width=40, c_x=10
     )
+    Bower_stream_function_in_moving_frame = Bower_StreamFunction_in_moving_frame(
+        psi_0=4e3, A=50, L=400, width=40, c_x=10
+    )
     Particles = Evolution_Particles(
-        stream_function=Bower_stream_function,
+        stream_function=Bower_stream_function_in_moving_frame,
         time_step=1 / 8,
-        t_final=10,
-        particle_number=10,
+        t_final=100,
+        particle_number=5,
         x_min=0,
         x_max=2 * Bower_stream_function.L,
         y_min=-250,
         y_max=250,
     )
-    Particles.plot_trajectories(name="Bower")
+
+    x_positions, y_positions = Particles.solve_ODE
+    print(Particles.verification_moving_frame(x=x_positions, y=y_positions))
+
+    Particles.plot_trajectories(name="Bower", savefig=False, filepath="Plots/")
 
     end_time = time.time()
 
