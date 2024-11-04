@@ -37,7 +37,7 @@ class Evolution_Particles:
     def initial_conditions(self):
         ic = np.zeros((self.particle_number, 2))
         ic[:, 0] = np.linspace(0, 0, self.particle_number)
-        ic[:, 1] = np.linspace(-50, 50, self.particle_number)
+        ic[:, 1] = np.linspace(-30, 30, self.particle_number)
 
         return ic
 
@@ -68,7 +68,7 @@ class Evolution_Particles:
         t_span = [0, self.t_final]
         t_eval = np.linspace(0, self.t_final, round(nb_points))
         sol = solve_ivp(
-            fun=self.RHS, t_span=t_span, y0=ic, method="DOP853", t_eval=t_eval
+            fun=self.RHS, t_span=t_span, y0=ic, method="RK45", t_eval=t_eval
         )
         r = sol.y.reshape((self.particle_number, 2, len(t_eval)))
         for i in range(len(t_eval)):
@@ -84,7 +84,9 @@ class Evolution_Particles:
         else:
             raise ValueError("Not a stream function in the moving frame")
 
-    def plot_trajectories(self, name: str, savefig: bool, filepath: str):
+    def plot_trajectories(
+        self, name: str, savefig: bool, streamlines: str, filepath: str
+    ):
         x, y = self.solve_ODE
         fig, ax = plt.subplots()
         ax.set_xlim(self.x_min, self.x_max)
@@ -96,11 +98,25 @@ class Evolution_Particles:
         ax.set_title(
             f"Particle Trajectories (time span={self.t_final} days, time step={self.time_step} days)"
         )
-        plt.show()
+
+        if streamlines:
+            x_domain = np.linspace(self.x_min, self.x_max, 100)
+            y_domain = np.linspace(self.y_min, self.y_max, 100)
+            X, Y = np.meshgrid(x_domain, y_domain)
+            Z = np.vectorize(self.stream_function.stream_function)(X, Y)
+
+            x_initial = self.initial_conditions[:, 0]
+            y_initial = self.initial_conditions[:, 1]
+            W = np.vectorize(self.stream_function.stream_function)(x_initial, y_initial)
+            levels = np.sort(W)
+            contour = plt.contour(X, Y, Z, levels=levels, cmap="viridis")
+            plt.colorbar(contour, label="Stream function value (ψ)")
+
         if savefig:
             plt.savefig(
                 f"{filepath}Evolution_Lines{name}{self.particle_number},{self.t_final}"
             )
+        plt.show()
 
 
 def main() -> None:
@@ -124,10 +140,16 @@ def main() -> None:
     x_positions, y_positions = Particles.solve_ODE
     print(Particles.verification_moving_frame(x=x_positions, y=y_positions))
 
-    Particles.plot_trajectories(name="Bower", savefig=False, filepath="Plots/")
+    Particles.plot_trajectories(
+        name="Bower", savefig=True, streamlines=True, filepath="Plots/"
+    )
     Bower_stream_function_in_moving_frame.plot_stream_function_contours(
-        x=np.linspace(Particles.x_min, Particles.x_max, 100),
-        y=np.linspace(Particles.y_min, Particles.y_max, 100),
+        x_domain=np.linspace(Particles.x_min, Particles.x_max, 100),
+        y_domain=np.linspace(Particles.y_min, Particles.y_max, 100),
+        x=Particles.initial_conditions[:, 0],
+        y=Particles.initial_conditions[:, 1],
+        savefig=True,
+        filepath="Plots/",
     )
 
     end_time = time.time()

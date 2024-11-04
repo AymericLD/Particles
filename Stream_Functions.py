@@ -11,6 +11,17 @@ class StreamFunction(ABC):
     @abstractmethod
     def stream_function(self, *args: float) -> float: ...
 
+    @abstractmethod
+    def plot_stream_function_contours(
+        self,
+        x_domain: NDArray,
+        y_domain: NDArray,
+        x: NDArray,
+        y: NDArray,
+        savefig: bool,
+        filepath: str,
+    ): ...
+
 
 @dataclass(frozen=True)
 class Bower_StreamFunction(StreamFunction):
@@ -69,18 +80,28 @@ class Bower_StreamFunction(StreamFunction):
         return (u_func, v_func)
 
     def plot_stream_function_contours(
-        stream_func: StreamFunction, x: NDArray, y: NDArray
+        self,
+        x_domain: NDArray,
+        y_domain: NDArray,
+        x: NDArray,
+        y: NDArray,
+        savefig: bool,
+        filepath: str,
     ):
-        X, Y = np.meshgrid(x, y)
-        Z = np.vectorize(stream_func.stream_function)(X, Y)
+        X, Y = np.meshgrid(x_domain, y_domain)
+        Z = np.vectorize(self.stream_function)(X, Y)
 
         plt.figure(figsize=(8, 6))
-        levels = np.linspace(Z.min(), Z.max(), 20)
+        W = np.vectorize(self.stream_function)(x, y)
+        levels = np.sort(W)
+        # levels = np.linspace(Z.min(), Z.max(), 20)
         contour = plt.contour(X, Y, Z, levels=levels, cmap="viridis")
         plt.colorbar(contour, label="Stream function value (ψ)")
         plt.xlabel("x")
         plt.ylabel("y")
         plt.title("Streamlines in moving frame")
+        if savefig:
+            plt.savefig(f"{filepath}Streamlines.png")
         plt.show()
 
 
@@ -143,16 +164,26 @@ class Bower_StreamFunction_in_moving_frame(StreamFunction):
         return (u_func, v_func)
 
     def plot_stream_function_contours(
-        stream_func: StreamFunction, x: NDArray, y: NDArray
+        self,
+        x_domain: NDArray,
+        y_domain: NDArray,
+        x: NDArray,
+        y: NDArray,
+        savefig: bool,
+        filepath: str,
     ):
-        X, Y = np.meshgrid(x, y)
-        Z = np.vectorize(stream_func.stream_function)(X, Y)
+        X, Y = np.meshgrid(x_domain, y_domain)
+        Z = np.vectorize(self.stream_function)(X, Y)
 
         plt.figure(figsize=(8, 6))
+        W = np.vectorize(self.stream_function)(x, y)
+        # levels = np.sort(W)
         levels = np.linspace(Z.min(), Z.max(), 20)
         contour = plt.contour(X, Y, Z, levels=levels, cmap="viridis")
         plt.colorbar(contour, label="Stream function value (ψ)")
         plt.xlabel("x")
         plt.ylabel("y")
         plt.title("Streamlines in moving frame")
+        if savefig:
+            plt.savefig(f"{filepath}Streamlines.png")
         plt.show()
