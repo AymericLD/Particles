@@ -72,10 +72,25 @@ class Bower_StreamFunction(StreamFunction):
         u_func = sp.lambdify((x, y, t), u_fixed, modules=["numpy"])
         return (u_func, v_func)
 
+    def plot_stream_function_contours(
+        stream_func: StreamFunction, x: NDArray, y: NDArray
+    ):
+        X, Y = np.meshgrid(x, y)
+        Z = np.vectorize(stream_func.stream_function)(X, Y)
+
+        plt.figure(figsize=(8, 6))
+        levels = np.linspace(Z.min(), Z.max(), 20)
+        contour = plt.contour(X, Y, Z, levels=levels, cmap="viridis")
+        plt.colorbar(contour, label="Stream function value (ψ)")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.title("Streamlines in moving frame")
+        plt.show()
+
 
 @dataclass(frozen=True)
 class Bower_StreamFunction_in_moving_frame(StreamFunction):
-    """Streamfunction given by the Bower Article in the moving frame"""
+    """Streamfunction given by the Bower Article in the moving frame of the jet"""
 
     psi_0: float
     A: float
@@ -130,6 +145,21 @@ class Bower_StreamFunction_in_moving_frame(StreamFunction):
         v_func = sp.lambdify((x, y, t), v_fixed, modules=["numpy"])
         u_func = sp.lambdify((x, y, t), u_fixed, modules=["numpy"])
         return (u_func, v_func)
+
+    def plot_stream_function_contours(
+        stream_func: StreamFunction, x: NDArray, y: NDArray
+    ):
+        X, Y = np.meshgrid(x, y)
+        Z = np.vectorize(stream_func.stream_function)(X, Y)
+
+        plt.figure(figsize=(8, 6))
+        levels = np.linspace(Z.min(), Z.max(), 20)
+        contour = plt.contour(X, Y, Z, levels=levels, cmap="viridis")
+        plt.colorbar(contour, label="Stream function value (ψ)")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.title("Streamlines in moving frame")
+        plt.show()
 
 
 @dataclass(frozen=True)
@@ -231,10 +261,10 @@ def main() -> None:
     Particles = Evolution_Particles(
         stream_function=Bower_stream_function_in_moving_frame,
         time_step=1 / 8,
-        t_final=100,
+        t_final=10,
         particle_number=5,
         x_min=0,
-        x_max=2 * Bower_stream_function.L,
+        x_max=2 * Bower_stream_function_in_moving_frame.L,
         y_min=-250,
         y_max=250,
     )
@@ -243,6 +273,10 @@ def main() -> None:
     print(Particles.verification_moving_frame(x=x_positions, y=y_positions))
 
     Particles.plot_trajectories(name="Bower", savefig=False, filepath="Plots/")
+    Bower_stream_function_in_moving_frame.plot_stream_function_contours(
+        x=np.linspace(Particles.x_min, Particles.x_max, 100),
+        y=np.linspace(Particles.y_min, Particles.y_max, 100),
+    )
 
     end_time = time.time()
 
