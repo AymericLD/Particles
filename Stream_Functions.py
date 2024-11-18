@@ -44,7 +44,7 @@ class Bower_StreamFunction(StreamFunction):
         return np.arctan(self.A * self.k * np.cos(self.k * (x - self.c_x * t)))
 
     def stream_function(self, x, y, t):
-        return self.psi_0(
+        return self.psi_0 * (
             1 - np.tanh((y - self.y_c(x, t)) / (self.width / np.cos(self.alpha(x, t))))
         )
 
@@ -92,9 +92,10 @@ class Bower_StreamFunction(StreamFunction):
         Z = np.vectorize(self.stream_function)(X, Y)
 
         plt.figure(figsize=(8, 6))
-        W = np.vectorize(self.stream_function)(x, y)
-        levels = np.sort(W)
-        # levels = np.linspace(Z.min(), Z.max(), 20)
+        # For plotting the contour of the stream function at levels given by the trajectories
+        # W = np.vectorize(self.stream_function)(x, y)
+        # levels = np.sort(W)
+        levels = np.linspace(Z.min(), Z.max(), 20)
         contour = plt.contour(X, Y, Z, levels=levels, cmap="viridis")
         plt.colorbar(contour, label="Stream function value (ψ)")
         plt.xlabel("x")
@@ -176,7 +177,8 @@ class Bower_StreamFunction_in_moving_frame(StreamFunction):
         Z = np.vectorize(self.stream_function)(X, Y)
 
         plt.figure(figsize=(8, 6))
-        W = np.vectorize(self.stream_function)(x, y)
+        # For plotting the contour of the stream function at levels given by the trajectories
+        # W = np.vectorize(self.stream_function)(x, y)
         # levels = np.sort(W)
         levels = np.linspace(Z.min(), Z.max(), 20)
         contour = plt.contour(X, Y, Z, levels=levels, cmap="viridis")

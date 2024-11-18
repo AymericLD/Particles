@@ -37,7 +37,7 @@ class Evolution_Particles:
     def initial_conditions(self):
         ic = np.zeros((self.particle_number, 2))
         ic[:, 0] = np.linspace(0, 0, self.particle_number)
-        ic[:, 1] = np.linspace(-30, 30, self.particle_number)
+        ic[:, 1] = np.linspace(-150, 150, self.particle_number)
 
         return ic
 
@@ -60,7 +60,7 @@ class Evolution_Particles:
         return positions
 
     @property
-    def solve_ODE(self) -> tuple[NDArray, NDArray]:
+    def solve_ODE(self) -> tuple[NDArray, NDArray, NDArray]:
         ic = (
             self.initial_conditions.flatten()
         )  # solve_ivp only deals with vectorial arguments
@@ -68,26 +68,80 @@ class Evolution_Particles:
         t_span = [0, self.t_final]
         t_eval = np.linspace(0, self.t_final, round(nb_points))
         sol = solve_ivp(
-            fun=self.RHS, t_span=t_span, y0=ic, method="RK45", t_eval=t_eval
+            fun=self.RHS, t_span=t_span, y0=ic, method="Radau", t_eval=t_eval
         )
         r = sol.y.reshape((self.particle_number, 2, len(t_eval)))
         for i in range(len(t_eval)):
             r[:, :, i] = self.apply_periodic_boundary_conditions(r[:, :, i])
         x = r[:, 0, :]
         y = r[:, 1, :]
-        return x, y
+        times = sol.t
+        return x, y, times
 
-    def verification_moving_frame(self, x, y):
+    @cached_property
+    def verification_in_moving_frame(self):
+        x, y, times = self.solve_ODE
+
+        if isinstance(self.stream_function, Bower_StreamFunction):
+            plt.plot(
+                (x - self.stream_function.c_x * times) % self.x_max, y, "."
+            )  # Trajectory in moving frame
+            # Contour Lines of stream function in moving frame, should be the same as the trajectories
+            x_domain = (np.linspace(self.x_min, self.x_max, 100),)
+            y_domain = (np.linspace(self.y_min, self.y_max, 100),)
+            X, Y = np.meshgrid(x_domain, y_domain)
+            Bower_stream_function_in_moving_frame = (
+                Bower_StreamFunction_in_moving_frame(
+                    psi_0=self.stream_function.psi_0,
+                    A=self.stream_function.A,
+                    L=self.stream_function.L,
+                    width=self.stream_function.width,
+                    c_x=self.stream_function.c_x,
+                )
+            )
+            Z = np.vectorize(Bower_stream_function_in_moving_frame.stream_function)(
+                X, Y
+            )
+            levels = np.linspace(Z.min(), Z.max(), 20)
+            plt.contour(X, Y, Z, levels=levels)
+            plt.show()
+            # Values of the stream function in the moving frame along a trajectory
+            q = Bower_stream_function_in_moving_frame.stream_function(
+                x - self.stream_function.c_x * times, y
+            )
+            plt.plot(times, q.T)
+            plt.show()
+
+        # This might be useless
+        if isinstance(self.stream_function, Bower_StreamFunction_in_moving_frame):
+            plt.plot(x % self.x_max, y, ".")  # Trajectory in moving frame
+            # Contour Lines of stream function in moving frame, should be the same as the trajectories
+            x_domain = (np.linspace(self.x_min, self.x_max, 100),)
+            y_domain = (np.linspace(self.y_min, self.y_max, 100),)
+            X, Y = np.meshgrid(x_domain, y_domain)
+            Z = np.vectorize(self.stream_function.stream_function)(X, Y)
+            levels = np.linspace(Z.min(), Z.max(), 20)
+            plt.contour(X, Y, Z, levels=levels)
+            plt.show()
+            # Values of the stream function in the moving frame along a trajectory
+            q = self.stream_function.stream_function(x, y)
+            plt.plot(times, q.T)
+            plt.show()
+
+    def stream_function_along_trajectories(self, x, y, t):
         if isinstance(self.stream_function, Bower_StreamFunction_in_moving_frame):
             psi = self.stream_function.stream_function(x, y)
             return psi
+        elif isinstance(self.stream_function, Bower_StreamFunction):
+            psi = self.stream_function.stream_function(x, y, t)
+            return psi
         else:
-            raise ValueError("Not a stream function in the moving frame")
+            raise ValueError("Not a known stream function")
 
     def plot_trajectories(
         self, name: str, savefig: bool, streamlines: str, filepath: str
     ):
-        x, y = self.solve_ODE
+        x, y, times = self.solve_ODE
         fig, ax = plt.subplots()
         ax.set_xlim(self.x_min, self.x_max)
         ax.set_ylim(self.y_min, self.y_max)
@@ -127,29 +181,20 @@ def main() -> None:
         psi_0=4e3, A=50, L=400, width=40, c_x=10
     )
     Particles = Evolution_Particles(
-        stream_function=Bower_stream_function_in_moving_frame,
+        stream_function=Bower_stream_function,
         time_step=1 / 8,
-        t_final=10,
+        t_final=100,
         particle_number=5,
         x_min=0,
-        x_max=2 * Bower_stream_function_in_moving_frame.L,
+        x_max=2 * Bower_stream_function.L,
         y_min=-250,
         y_max=250,
     )
 
-    x_positions, y_positions = Particles.solve_ODE
-    print(Particles.verification_moving_frame(x=x_positions, y=y_positions))
+    Particles.verification_in_moving_frame
 
     Particles.plot_trajectories(
-        name="Bower", savefig=True, streamlines=True, filepath="Plots/"
-    )
-    Bower_stream_function_in_moving_frame.plot_stream_function_contours(
-        x_domain=np.linspace(Particles.x_min, Particles.x_max, 100),
-        y_domain=np.linspace(Particles.y_min, Particles.y_max, 100),
-        x=Particles.initial_conditions[:, 0],
-        y=Particles.initial_conditions[:, 1],
-        savefig=True,
-        filepath="Plots/",
+        name="Bower", savefig=True, streamlines=False, filepath="Plots/"
     )
 
     end_time = time.time()
