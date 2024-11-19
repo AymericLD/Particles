@@ -183,7 +183,7 @@ def main() -> None:
     Particles = Evolution_Particles(
         stream_function=Bower_stream_function,
         time_step=1 / 8,
-        t_final=100,
+        t_final=10,
         particle_number=5,
         x_min=0,
         x_max=2 * Bower_stream_function.L,
