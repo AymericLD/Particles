@@ -8,7 +8,9 @@ from Stream_Functions import (
     StreamFunction,
     Bower_StreamFunction,
     Bower_StreamFunction_in_moving_frame,
+    Cellular_Flow,
 )
+from Spectral_Analysis import Spectral_Particles_Analysis
 import time
 
 start_time = time.time()
@@ -41,6 +43,27 @@ class Evolution_Particles:
 
         return ic
 
+    @cached_property
+    def initial_conditions_pairs(self):
+        initial_separation = 25
+        if self.particle_number % 2 != 0:
+            raise ValueError(
+                "Cannot define pairs of particles with an odd number of particles"
+            )
+        num_pairs = self.particle_number // 2
+        ic = np.zeros((self.particle_number, 2))
+        ic[:num_pairs, 0] = np.linspace(0, 0, num_pairs)
+        ic[:num_pairs, 1] = np.linspace(-150, 150, num_pairs)
+
+        for i in range(num_pairs):
+            theta = np.random.uniform(0, 2 * np.pi)
+            dx = initial_separation * np.cos(theta)
+            dy = initial_separation * np.sin(theta)
+            ic[i + num_pairs, 0] = ic[i, 0] + dx
+            ic[i + num_pairs, 1] = ic[i, 1] + dy
+
+        return ic
+
     def RHS(self, t: float, y: NDArray) -> NDArray:
         r = y.reshape((self.particle_number, 2))  # Use a N*2 matrix to handle the ODE
         derivatives = np.zeros((self.particle_number, 2))
@@ -62,7 +85,7 @@ class Evolution_Particles:
     @property
     def solve_ODE(self) -> tuple[NDArray, NDArray, NDArray]:
         ic = (
-            self.initial_conditions.flatten()
+            self.initial_conditions_pairs.flatten()
         )  # solve_ivp only deals with vectorial arguments
         nb_points = self.t_final / self.time_step
         t_span = [0, self.t_final]
@@ -77,6 +100,13 @@ class Evolution_Particles:
         y = r[:, 1, :]
         times = sol.t
         return x, y, times
+
+    @property
+    def velocity_profiles(self) -> tuple[NDArray, NDArray]:
+        x, y, times = self.solve_ODE
+        dx_dt = np.diff(x) / np.diff(times)
+        dy_dt = np.diff(y) / np.diff(times)
+        return (dx_dt, dy_dt)
 
     @cached_property
     def verification_in_moving_frame(self):
@@ -112,7 +142,6 @@ class Evolution_Particles:
             plt.plot(times, q.T)
             plt.show()
 
-        # This might be useless
         if isinstance(self.stream_function, Bower_StreamFunction_in_moving_frame):
             plt.plot(x % self.x_max, y, ".")  # Trajectory in moving frame
             # Contour Lines of stream function in moving frame, should be the same as the trajectories
@@ -171,38 +200,3 @@ class Evolution_Particles:
                 f"{filepath}Evolution_Lines{name}{self.particle_number},{self.t_final}"
             )
         plt.show()
-
-
-def main() -> None:
-    Bower_stream_function = Bower_StreamFunction(
-        psi_0=4e3, A=50, L=400, width=40, c_x=10
-    )
-    Bower_stream_function_in_moving_frame = Bower_StreamFunction_in_moving_frame(
-        psi_0=4e3, A=50, L=400, width=40, c_x=10
-    )
-    Particles = Evolution_Particles(
-        stream_function=Bower_stream_function,
-        time_step=1 / 8,
-        t_final=10,
-        particle_number=5,
-        x_min=0,
-        x_max=2 * Bower_stream_function.L,
-        y_min=-250,
-        y_max=250,
-    )
-
-    Particles.verification_in_moving_frame
-
-    Particles.plot_trajectories(
-        name="Bower", savefig=True, streamlines=False, filepath="Plots/"
-    )
-
-    end_time = time.time()
-
-    execution_time = end_time - start_time
-
-    print(f"Execution time : {execution_time:.2f} seconds")
-
-
-if __name__ == "__main__":
-    main()
