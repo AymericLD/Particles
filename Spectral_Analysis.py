@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from scipy.signal import get_window
 from dataclasses import dataclass
 from functools import cached_property
-from Particles import Evolution_Particles
 
 
 @dataclass(frozen=True)
@@ -14,20 +13,19 @@ class Spectral_Particles_Analysis:
     t_final: float
     num_particles: int
 
-    @property
     def velocity_spectrum(self, u, v):
-        N = int(self.t_final / self.time_step)
+        N = int(self.t_final / self.time_step) - 1
         window = get_window("blackman", N)
 
-        u_windowed = np.zeros((N, self.num_particles))
-        fft_u = np.zeros((N, self.num_particles))
-        v_windowed = np.zeros((N, self.num_particles))
-        fft_v = np.zeros((N, self.num_particles))
+        u_windowed = np.zeros((N, self.num_particles), dtype=complex)
+        fft_u = np.zeros((N, self.num_particles), dtype=complex)
+        v_windowed = np.zeros((N, self.num_particles), dtype=complex)
+        fft_v = np.zeros((N, self.num_particles), dtype=complex)
 
         for i in range(self.num_particles):
-            u_windowed[:, i] = u[:, i] * window
+            u_windowed[:, i] = u[i, :] * window
             fft_u[:, i] = np.fft.fft(u_windowed[:, i])
-            v_windowed[:, i] = v[:, i] * window
+            v_windowed[:, i] = v[i, :] * window
             fft_v[:, i] = np.fft.fft(v_windowed[:, i])
 
         frequencies_u = np.fft.fftfreq(N, self.time_step)
@@ -45,11 +43,10 @@ class Spectral_Particles_Analysis:
 
         # Velocity Spectrum
 
-        vel_spec = np.sqrt(u_spec + v_spec)
+        vel_spec = np.sqrt(u_spec + v_spec)  # sqrt ??
 
         return u_spec, v_spec, vel_spec, freq
 
-    @property
     def plot_velocity_spectrum(self, u, v):
         u_spec, v_spec, vel_spec, freq = self.velocity_spectrum(u, v)
         plt.figure(figsize=(10, 6))
