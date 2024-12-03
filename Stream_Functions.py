@@ -8,8 +8,13 @@ from numpy.typing import NDArray
 
 
 class StreamFunction(ABC):
+    L: float
+
     @abstractmethod
     def stream_function(self, *args: float) -> float: ...
+
+    @abstractmethod
+    def derivative(self): ...
 
     @abstractmethod
     def plot_stream_function_contours(
@@ -189,3 +194,66 @@ class Bower_StreamFunction_in_moving_frame(StreamFunction):
         if savefig:
             plt.savefig(f"{filepath}Streamlines.png")
         plt.show()
+
+
+@dataclass(frozen=True)
+class Cellular_Flow(StreamFunction):
+    epsilon: float
+    L: float
+    alpha: float
+    phi: float
+
+    @cached_property
+    def k(self):
+        return 2 * np.pi / self.L
+
+    @cached_property
+    def omega(self):
+        return np.pi * self.alpha / self.L
+
+    def stream_function(self, x, y, t) -> float:
+        a = np.sin((self.k * (x - self.epsilon * np.sin(self.omega * t))))
+        b = np.sin(self.k * (y - self.epsilon * np.sin(self.omega * t + self.phi)))
+        return a * b * self.alpha / self.k
+
+    @cached_property
+    def derivative(self):
+        x, y, t = sp.symbols("x y t")
+        omega, epsilon, alpha, phi, k = sp.symbols("omega epsilon alpha phi k")
+        a = sp.sin((self.k * (x - self.epsilon * sp.sin(self.omega * t))))
+        b = sp.sin(self.k * (y - self.epsilon * sp.sin(self.omega * t + self.phi)))
+        psi = a * b * alpha / k
+        v = sp.diff(psi, x)
+        u = -sp.diff(psi, y)
+        u_fixed = u.subs(
+            {
+                omega: self.omega,
+                epsilon: self.epsilon,
+                alpha: self.alpha,
+                phi: self.phi,
+                k: self.k,
+            }
+        )
+        v_fixed = v.subs(
+            {
+                omega: self.omega,
+                epsilon: self.epsilon,
+                alpha: self.alpha,
+                phi: self.phi,
+                k: self.k,
+            }
+        )
+        v_func = sp.lambdify((x, y, t), v_fixed, modules=["numpy"])
+        u_func = sp.lambdify((x, y, t), u_fixed, modules=["numpy"])
+        return (u_func, v_func)
+
+    def plot_stream_function_contours(
+        self,
+        x_domain: NDArray,
+        y_domain: NDArray,
+        x: NDArray,
+        y: NDArray,
+        savefig: bool,
+        filepath: str,
+    ):
+        return
