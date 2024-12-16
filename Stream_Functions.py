@@ -257,3 +257,108 @@ class Cellular_Flow(StreamFunction):
         filepath: str,
     ):
         return
+
+
+@dataclass(frozen=True)
+class Bower_StreamFunction_with_inertial_waves(StreamFunction):
+    """Streamfunction given by the Bower Article with additionnal inertial waves"""
+
+    psi_0: float
+    A: float
+    L: float
+    width: float
+    c_x: float
+    f: float
+    gamma: float
+
+    @cached_property
+    def k(self):
+        return 2 * np.pi / self.L
+
+    def y_c(self, x, t):
+        return self.A * np.sin(self.k * (x - self.c_x * t))
+
+    def alpha(self, x, t):
+        return np.arctan(self.A * self.k * np.cos(self.k * (x - self.c_x * t)))
+
+    def stream_function(self, x, y, t):
+        return self.psi_0 * (
+            1 - np.tanh((y - self.y_c(x, t)) / (self.width / np.cos(self.alpha(x, t))))
+        )
+
+    @cached_property
+    def derivative_verification(self):
+        x, y, t = sp.symbols("x y t")
+        psi_0, A, k, width, c_x = sp.symbols("psi_0 A k width c_x")
+        y_c = A * sp.sin(k * (x - c_x * t))
+        alpha = sp.atan(A * k * sp.cos(k * (x - c_x * t)))
+        psi = psi_0 * (1 - sp.tanh((y - y_c) / (width / sp.cos(alpha))))
+        v = sp.diff(psi, x)
+        u = -sp.diff(psi, y)
+        print("u=", u)
+        print("v=", v)
+
+    @cached_property
+    def derivative(self):
+        x, y, t = sp.symbols("x y t")
+        psi_0, A, k, width, c_x, f, gamma = sp.symbols("psi_0 A k width c_x f gamma")
+        y_c = A * sp.sin(k * (x - c_x * t))
+        alpha = sp.atan(A * k * sp.cos(k * (x - c_x * t)))
+        psi = psi_0 * (1 - sp.tanh((y - y_c) / (width / sp.cos(alpha))))
+        v = sp.diff(psi, x) * (1 - gamma * sp.cos(f * t)) - sp.diff(
+            psi, y
+        ) * gamma * sp.sin(f * t)
+        u = -sp.diff(psi, y) * (1 - gamma * sp.cos(f * t)) - sp.diff(
+            psi, x
+        ) * gamma * sp.sin(f * t)
+        v_fixed = v.subs(
+            {
+                psi_0: self.psi_0,
+                A: self.A,
+                k: self.k,
+                width: self.width,
+                c_x: self.c_x,
+                f: self.f,
+                gamma: self.gamma,
+            }
+        )
+        u_fixed = u.subs(
+            {
+                psi_0: self.psi_0,
+                A: self.A,
+                k: self.k,
+                width: self.width,
+                c_x: self.c_x,
+                f: self.f,
+                gamma: self.gamma,
+            }
+        )
+        v_func = sp.lambdify((x, y, t), v_fixed, modules=["numpy"])
+        u_func = sp.lambdify((x, y, t), u_fixed, modules=["numpy"])
+        return (u_func, v_func)
+
+    def plot_stream_function_contours(
+        self,
+        x_domain: NDArray,
+        y_domain: NDArray,
+        x: NDArray,
+        y: NDArray,
+        savefig: bool,
+        filepath: str,
+    ):
+        X, Y = np.meshgrid(x_domain, y_domain)
+        Z = np.vectorize(self.stream_function)(X, Y)
+
+        plt.figure(figsize=(8, 6))
+        # For plotting the contour of the stream function at levels given by the trajectories
+        # W = np.vectorize(self.stream_function)(x, y)
+        # levels = np.sort(W)
+        levels = np.linspace(Z.min(), Z.max(), 20)
+        contour = plt.contour(X, Y, Z, levels=levels, cmap="viridis")
+        plt.colorbar(contour, label="Stream function value (ψ)")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.title("Streamlines in moving frame")
+        if savefig:
+            plt.savefig(f"{filepath}Streamlines.png")
+        plt.show()
