@@ -9,6 +9,7 @@ from Stream_Functions import (
     Bower_StreamFunction,
     Bower_StreamFunction_in_moving_frame,
     Cellular_Flow,
+    Bower_StreamFunction_with_inertial_waves,
 )
 from Spectral_Analysis import Spectral_Particles_Analysis
 import time
@@ -45,22 +46,20 @@ class Evolution_Particles:
 
     @cached_property
     def initial_conditions_pairs(self):
-        initial_separation = 25
+        initial_separation = 5
         if self.particle_number % 2 != 0:
             raise ValueError(
                 "Cannot define pairs of particles with an odd number of particles"
             )
         num_pairs = self.particle_number // 2
         ic = np.zeros((self.particle_number, 2))
-        ic[:num_pairs, 0] = np.linspace(0, 0, num_pairs)
+        ic[:num_pairs, 0] = np.linspace(0, 800, num_pairs)
         ic[:num_pairs, 1] = np.linspace(-150, 150, num_pairs)
-
-        for i in range(num_pairs):
-            theta = np.random.uniform(0, 2 * np.pi)
-            dx = initial_separation * np.cos(theta)
-            dy = initial_separation * np.sin(theta)
-            ic[i + num_pairs, 0] = ic[i, 0] + dx
-            ic[i + num_pairs, 1] = ic[i, 1] + dy
+        theta = np.random.uniform(0, 2 * np.pi, size=num_pairs)
+        dx = initial_separation * np.cos(theta)
+        dy = initial_separation * np.sin(theta)
+        ic[num_pairs:, 0] = ic[:num_pairs, 0] + dx
+        ic[num_pairs:, 1] = ic[:num_pairs, 1] + dy
 
         return ic
 
@@ -82,8 +81,7 @@ class Evolution_Particles:
 
         return positions
 
-    @property
-    def solve_ODE(self) -> tuple[NDArray, NDArray, NDArray]:
+    def solve_ODE(self, PBC: bool) -> tuple[NDArray, NDArray, NDArray]:
         ic = (
             self.initial_conditions_pairs.flatten()
         )  # solve_ivp only deals with vectorial arguments
@@ -91,11 +89,12 @@ class Evolution_Particles:
         t_span = [0, self.t_final]
         t_eval = np.linspace(0, self.t_final, round(nb_points))
         sol = solve_ivp(
-            fun=self.RHS, t_span=t_span, y0=ic, method="Radau", t_eval=t_eval
+            fun=self.RHS, t_span=t_span, y0=ic, method="RK45", t_eval=t_eval
         )
         r = sol.y.reshape((self.particle_number, 2, len(t_eval)))
-        for i in range(len(t_eval)):
-            r[:, :, i] = self.apply_periodic_boundary_conditions(r[:, :, i])
+        if PBC:
+            for i in range(len(t_eval)):
+                r[:, :, i] = self.apply_periodic_boundary_conditions(r[:, :, i])
         x = r[:, 0, :]
         y = r[:, 1, :]
         times = sol.t
@@ -103,14 +102,14 @@ class Evolution_Particles:
 
     @property
     def velocity_profiles(self) -> tuple[NDArray, NDArray]:
-        x, y, times = self.solve_ODE
+        x, y, times = self.solve_ODE(PBC=True)
         dx_dt = np.diff(x) / np.diff(times)
         dy_dt = np.diff(y) / np.diff(times)
         return (dx_dt, dy_dt)
 
     @cached_property
     def verification_in_moving_frame(self):
-        x, y, times = self.solve_ODE
+        x, y, times = self.solve_ODE(PBC=True)
 
         if isinstance(self.stream_function, Bower_StreamFunction):
             plt.plot(
@@ -170,7 +169,7 @@ class Evolution_Particles:
     def plot_trajectories(
         self, name: str, savefig: bool, streamlines: str, filepath: str
     ):
-        x, y, times = self.solve_ODE
+        x, y, times = self.solve_ODE(PBC=True)
         fig, ax = plt.subplots()
         ax.set_xlim(self.x_min, self.x_max)
         ax.set_ylim(self.y_min, self.y_max)
