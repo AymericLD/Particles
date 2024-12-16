@@ -1,15 +1,7 @@
 from dataclasses import dataclass
 from functools import cached_property
 import numpy as np
-import matplotlib.pyplot as plt
 from numpy.typing import NDArray
-from Stream_Functions import (
-    StreamFunction,
-    Bower_StreamFunction,
-    Bower_StreamFunction_in_moving_frame,
-    Cellular_Flow,
-)
-import time
 
 
 @dataclass(frozen=True)
@@ -29,10 +21,21 @@ class One_Particle_Stats:
         """It is assumed that r has a shape (Number of Particles, position(time))"""
         return np.sum(r, axis=0) / self.num_particles
 
-    def absolute_dispersion(self, t: float):
-        a = self.average_ensemble(self.position[:, t] - self.position[:, 0]) ** 2
-        b = self.average_ensemble((self.position[:, t] - self.position[:, 0]) ** 2)
+    @cached_property
+    def absolute_dispersion(self):
+        a = np.zeros(len(self.times))
+        b = np.zeros(len(self.times))
+        for t in range(len(self.times)):
+            a[t] = self.average_ensemble(self.position[:, t] - self.position[:, 0]) ** 2
+            b[t] = self.average_ensemble(
+                (self.position[:, t] - self.position[:, 0]) ** 2
+            )
         return b - a
+
+    @cached_property
+    def absolute_diffusivity(self):
+        dA_dt = np.diff(self.absolute_dispersion) / np.diff(self.times)
+        return (1 / 2) * dA_dt
 
 
 @dataclass(frozen=True)
@@ -43,29 +46,47 @@ class Two_Particles_Stats:
     y: NDArray
     times: NDArray
     num_particles: int
+    initial_separation: float
 
     @cached_property
     def position(self):
         return np.sqrt(self.x**2 + self.y**2)
 
-    def pairs(self, R_0: float):
+    @cached_property
+    def pairs(self):
         """Return a list containing tuples of particles index which were initially separated with a distance R_0"""
         ps = []
+
         for i in range(self.num_particles):
             for j in range(i + 1, self.num_particles):
-                if np.abs(self.position[i, 0] - self.position[j, 0]) <= R_0:
+                if (
+                    np.sqrt(
+                        (self.x[i, 0] - self.x[j, 0]) ** 2
+                        + (self.y[i, 0] - self.y[j, 0]) ** 2
+                    )
+                    <= 1.1 * self.initial_separation
+                ):
                     ps.append([i, j])
         return ps
 
-    def average_ensemble(self, r: NDArray, ps: tuple):
+    def average_ensemble(self, x_t: NDArray, y_t: NDArray, ps: tuple):
         """It is assumed that r has a shape (Number of Particles, position(time)) and ps is a tuple of pair indexes"""
         separation = []
         for i, j in ps:
-            separation.append((r[i] - r[j]) ** 2)
+            separation.append((x_t[i] - x_t[j]) ** 2 + (y_t[i] - y_t[j]) ** 2)
         sep = np.array(separation)
-        return np.sum(sep) / self.num_particles
 
-    def relative_dispersion(self, t: float, R_0: float):
-        ps = self.pairs(R_0=R_0)
-        rel_disp = self.average_ensemble(self.position[:, t], ps)
+        return np.sum(sep) / len(ps)
+
+    @cached_property
+    def relative_dispersion(self):
+        ps = self.pairs
+        rel_disp = np.zeros(len(self.times))
+        for t in range(len(self.times)):
+            rel_disp[t] = self.average_ensemble(self.x[:, t], self.y[:, t], ps)
         return rel_disp
+
+    @cached_property
+    def relative_diffusivity(self):
+        dA_dt = np.diff(self.relative_dispersion) / np.diff(self.times)
+        return (1 / 2) * dA_dt
