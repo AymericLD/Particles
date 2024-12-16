@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from functools import cached_property
 import numpy as np
+import matplotlib.pyplot as plt
 from numpy.typing import NDArray
 
 
@@ -13,34 +14,28 @@ class One_Particle_Stats:
     times: NDArray
     num_particles: int
 
-    @cached_property
-    def position(self):
-        return np.sqrt(self.x**2 + self.y**2)
-
     def average_ensemble(self, r: NDArray):
         """It is assumed that r has a shape (Number of Particles, position(time))"""
         return np.sum(r, axis=0) / self.num_particles
 
     @cached_property
     def absolute_dispersion(self):
-        a = np.zeros(len(self.times))
-        b = np.zeros(len(self.times))
-        for t in range(len(self.times)):
-            a[t] = self.average_ensemble(self.position[:, t] - self.position[:, 0]) ** 2
-            b[t] = self.average_ensemble(
-                (self.position[:, t] - self.position[:, 0]) ** 2
-            )
-        return b - a
+        r2_avg = np.mean(self.x - self.x[:, 0], axis=0) ** 2
+        avg_r2 = np.mean((self.x - self.x[:, 0]) ** 2, axis=0)
+        return avg_r2 - r2_avg
 
     @cached_property
     def absolute_diffusivity(self):
-        dA_dt = np.diff(self.absolute_dispersion) / np.diff(self.times)
+        dA_dt = np.gradient(self.absolute_dispersion) / np.gradient(self.times)
         return (1 / 2) * dA_dt
 
 
 @dataclass(frozen=True)
 class Two_Particles_Stats:
     """Compute two-particles Lagrangian statistical indicators in a given flow"""
+
+    """The first particle of a pair is assumed to have an index in [0,N_particles/2], the second particle of the pair has and 
+    index in [N_particles/2+1,N_particles]"""
 
     x: NDArray
     y: NDArray
@@ -49,44 +44,55 @@ class Two_Particles_Stats:
     initial_separation: float
 
     @cached_property
-    def position(self):
-        return np.sqrt(self.x**2 + self.y**2)
-
-    @cached_property
-    def pairs(self):
-        """Return a list containing tuples of particles index which were initially separated with a distance R_0"""
-        ps = []
-
-        for i in range(self.num_particles):
-            for j in range(i + 1, self.num_particles):
-                if (
-                    np.sqrt(
-                        (self.x[i, 0] - self.x[j, 0]) ** 2
-                        + (self.y[i, 0] - self.y[j, 0]) ** 2
-                    )
-                    <= 1.1 * self.initial_separation
-                ):
-                    ps.append([i, j])
-        return ps
-
-    def average_ensemble(self, x_t: NDArray, y_t: NDArray, ps: tuple):
-        """It is assumed that r has a shape (Number of Particles, position(time)) and ps is a tuple of pair indexes"""
-        separation = []
-        for i, j in ps:
-            separation.append((x_t[i] - x_t[j]) ** 2 + (y_t[i] - y_t[j]) ** 2)
-        sep = np.array(separation)
-
-        return np.sum(sep) / len(ps)
-
-    @cached_property
     def relative_dispersion(self):
-        ps = self.pairs
-        rel_disp = np.zeros(len(self.times))
-        for t in range(len(self.times)):
-            rel_disp[t] = self.average_ensemble(self.x[:, t], self.y[:, t], ps)
-        return rel_disp
+        dispersion = np.mean(
+            (
+                self.x[: self.num_particles // 2, :]
+                - self.x[self.num_particles // 2 :, :]
+            )
+            ** 2
+            + (
+                self.y[: self.num_particles // 2, :]
+                - self.y[self.num_particles // 2 :, :]
+            )
+            ** 2,
+            axis=0,
+        )
+        return dispersion
 
     @cached_property
     def relative_diffusivity(self):
-        dA_dt = np.diff(self.relative_dispersion) / np.diff(self.times)
-        return (1 / 2) * dA_dt
+        K_rel = np.gradient(self.relative_dispersion) / np.gradient(self.times)
+        return (1 / 2) * K_rel
+
+    @cached_property
+    def kurtosis(self):
+        dx = self.x[: self.num_particles // 2, :] - self.x[self.num_particles // 2 :, :]
+        dy = self.y[: self.num_particles // 2, :] - self.y[self.num_particles // 2 :, :]
+        r_4 = np.mean(
+            dx**4 + dy**4,
+            axis=0,
+        )
+        r_2_avg = (np.mean(dx**2 + dy**2, axis=0)) ** 2
+
+        return r_4 / r_2_avg
+
+    @cached_property
+    def plot_time_evolution_kurtosis(self):
+        K = self.kurtosis
+        fig, ax = plt.subplots()
+        plt.plot(self.times, K)
+        ax.set_xlabel("t (days)")
+        ax.set_ylabel("kurtosis")
+        ax.set_title("Time evolution of kurtosis")
+
+    @cached_property
+    def plot_time_evolution_dispersion(self):
+        dispersion = self.relative_dispersion
+        fig, ax = plt.subplots()
+        plt.loglog(self.times, dispersion)
+        y = self.times**2
+        plt.loglog(self.times, y, "--")
+        ax.set_xlabel("t (days)")
+        ax.set_ylabel("Relative Dispersion")
+        ax.set_title("Time evolution of Relative dispersion")
