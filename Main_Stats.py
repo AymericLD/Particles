@@ -1,30 +1,31 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from numpy.typing import NDArray
+import time
+from Dispersion_Stats import One_Particle_Stats, Two_Particles_Stats
 from Stream_Functions import (
     StreamFunction,
     Bower_StreamFunction,
     Bower_StreamFunction_in_moving_frame,
+    Cellular_Flow,
     Bower_StreamFunction_with_inertial_waves,
 )
-from Spectral_Analysis import Spectral_Particles_Analysis
 from Particles import Evolution_Particles
-import time
-
-start_time = time.time()
 
 
 def main() -> None:
+    start_time = time.time()
+
     # Parameters
 
     num_particles = 2000
     time_step = 1 / 8
     t_final = 400
+    initial_separation = 5
 
     # Model
 
     Bower_stream_function = Bower_StreamFunction(
-        psi_0=4e3, A=50, L=400, width=40, c_x=10
-    )
-
-    Bower_stream_function_in_moving_frame = Bower_StreamFunction_in_moving_frame(
         psi_0=4e3, A=50, L=400, width=40, c_x=10
     )
 
@@ -45,9 +46,16 @@ def main() -> None:
         y_max=250,
     )
 
-    Particles.plot_trajectories(
-        name="Bower", savefig=True, streamlines=False, filepath="Plots/"
-    )
+    x, y, times = Particles.solve_ODE(PBC=False)
+    Stats = Two_Particles_Stats(x, y, times, num_particles, initial_separation)
+
+    # Plots
+
+    Stats.plot_time_evolution_dispersion
+
+    # plt.ylim(1e-3, 1e4)
+    # plt.loglog(np.sqrt(dispersion), K_rel)
+    plt.show()
 
     end_time = time.time()
 
