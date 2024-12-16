@@ -43,7 +43,7 @@ class Spectral_Particles_Analysis:
 
         # Velocity Spectrum
 
-        vel_spec = np.sqrt(u_spec + v_spec)  # sqrt ??
+        vel_spec = u_spec + v_spec
 
         return u_spec, v_spec, vel_spec, freq
 
