@@ -92,7 +92,34 @@ class Two_Particles_Stats:
         plt.legend()
 
         if savefig:
-            plt.savefig(f"{filepath}Kurtosis,f={f}-gamma={gamma}.png")
+            plt.savefig(
+                f"{filepath}Kurtosis,f={f}gamma={gamma}num_particles={self.num_particles}.png"
+            )
+
+        else:
+            plt.show()
+
+    def plot_kurtosis_evolution_wrt_R(
+        self, filepath: str, savefig: bool, f: float, gamma: float
+    ):
+        """f is the frequency of the internal waves and gamma is the modulation of the geostrophic current"""
+        """ f=0 and gamma=0 for the geostrophic current"""
+
+        K = self.kurtosis
+        fig, ax = plt.subplots()
+        # plt.plot(self.times, K)
+        plt.plot(self.relative_dispersion, K)
+        # plt.plot(self.times, self.relative_dispersion)
+        # plt.plot(self.times, np.sqrt(self.relative_dispersion))
+        ax.set_xlabel(r"$\langle R^2 \rangle$")
+        ax.set_ylabel(r"$\langle R^4 \rangle$/$\langle R^2 \rangle^2$")
+        ax.set_title("Kurtosis Evolution with the Relative Dispersion")
+        plt.legend()
+
+        if savefig:
+            plt.savefig(
+                f"{filepath}Kurtosis_wrt_R,f={f}gamma={gamma}num_particles={self.num_particles}.png"
+            )
 
         else:
             plt.show()
@@ -111,7 +138,9 @@ class Two_Particles_Stats:
         plt.legend()
 
         if savefig:
-            plt.savefig(f"{filepath}Dispersion,f={f}-gamma={gamma}.png")
+            plt.savefig(
+                f"{filepath}Dispersion,f={f}gamma={gamma}num_particles={self.num_particles}.png"
+            )
 
         else:
             plt.show()

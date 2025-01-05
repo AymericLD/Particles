@@ -16,12 +16,19 @@ from Particles import Evolution_Particles
 def main() -> None:
     start_time = time.time()
 
+    # Backup Folder
+
+    filepath = "Plots/Bower_Flow/Stats/"
+    savefig = True
+
     # Parameters
 
     num_particles = 2000
     time_step = 1 / 8
-    t_final = 400
+    t_final = 4000
     initial_separation = 5
+    f = 8.64
+    gamma = 0
 
     # Model
 
@@ -30,7 +37,7 @@ def main() -> None:
     )
 
     Inertial_Waves = Bower_StreamFunction_with_inertial_waves(
-        psi_0=4e3, A=50, L=400, width=40, c_x=10, f=8.64, gamma=1
+        psi_0=4e3, A=50, L=400, width=40, c_x=10, f=f, gamma=gamma
     )
 
     # Trajectories
@@ -41,7 +48,7 @@ def main() -> None:
         t_final=t_final,
         particle_number=num_particles,
         x_min=0,
-        x_max=2 * Bower_stream_function.L,
+        x_max=2 * Inertial_Waves.L,
         y_min=-250,
         y_max=250,
     )
@@ -51,11 +58,16 @@ def main() -> None:
 
     # Plots
 
-    Stats.plot_time_evolution_dispersion
+    # Stats.plot_time_evolution_dispersion(
+    #     filepath=filepath, savefig=savefig, f=f, gamma=gamma
+    # )
+
+    Stats.plot_kurtosis_evolution_wrt_R(
+        filepath=filepath, savefig=savefig, f=f, gamma=gamma
+    )
 
     # plt.ylim(1e-3, 1e4)
     # plt.loglog(np.sqrt(dispersion), K_rel)
-    plt.show()
 
     end_time = time.time()
 
