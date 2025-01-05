@@ -92,7 +92,7 @@ class Two_Particles_Stats:
         plt.legend()
 
         if savefig:
-            plt.savefig(f"{filepath}Kurtosis{f}-{gamma}.png")
+            plt.savefig(f"{filepath}Kurtosis,f={f}-gamma={gamma}.png")
 
         else:
             plt.show()
@@ -111,7 +111,7 @@ class Two_Particles_Stats:
         plt.legend()
 
         if savefig:
-            plt.savefig(f"{filepath}Dispersion{f}-{gamma}.png")
+            plt.savefig(f"{filepath}Dispersion,f={f}-gamma={gamma}.png")
 
         else:
             plt.show()

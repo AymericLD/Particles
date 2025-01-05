@@ -68,7 +68,7 @@ class Spectral_Particles_Analysis:
         plt.tight_layout()
 
         if savefig:
-            plt.savefig(f"{filepath}Velocity_Spectrum{f}-{gamma}.png")
+            plt.savefig(f"{filepath}Velocity_Spectrum,f={f}-gamma={gamma}.png")
 
         else:
             plt.show()
