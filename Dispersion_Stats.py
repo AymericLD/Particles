@@ -77,17 +77,29 @@ class Two_Particles_Stats:
 
         return r_4 / r_2_avg
 
-    @cached_property
-    def plot_time_evolution_kurtosis(self):
+    def plot_time_evolution_kurtosis(
+        self, filepath: str, savefig: bool, f: float, gamma: float
+    ):
+        """f is the frequency of the internal waves and gamma is the modulation of the geostrophic current"""
+        """ f=0 and gamma=0 for the geostrophic current"""
+
         K = self.kurtosis
         fig, ax = plt.subplots()
         plt.plot(self.times, K)
         ax.set_xlabel("t (days)")
-        ax.set_ylabel("kurtosis")
+        ax.set_ylabel(r"$\langle R^4 \rangle$/$\langle R^2 \rangle^2$")
         ax.set_title("Time evolution of kurtosis")
+        plt.legend()
 
-    @cached_property
-    def plot_time_evolution_dispersion(self):
+        if savefig:
+            plt.savefig(f"{filepath}Kurtosis{f}-{gamma}.png")
+
+        else:
+            plt.show()
+
+    def plot_time_evolution_dispersion(
+        self, filepath: str, savefig: bool, f: float, gamma: float
+    ):
         dispersion = self.relative_dispersion
         fig, ax = plt.subplots()
         plt.loglog(self.times, dispersion)
@@ -96,3 +108,10 @@ class Two_Particles_Stats:
         ax.set_xlabel("t (days)")
         ax.set_ylabel("Relative Dispersion")
         ax.set_title("Time evolution of Relative dispersion")
+        plt.legend()
+
+        if savefig:
+            plt.savefig(f"{filepath}Dispersion{f}-{gamma}.png")
+
+        else:
+            plt.show()

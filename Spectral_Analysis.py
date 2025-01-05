@@ -47,7 +47,12 @@ class Spectral_Particles_Analysis:
 
         return u_spec, v_spec, vel_spec, freq
 
-    def plot_velocity_spectrum(self, u, v):
+    def plot_velocity_spectrum(
+        self, u, v, filepath: str, savefig: bool, f: float, gamma: float
+    ):
+        """f is the frequency of the internal waves and gamma is the modulation of the geostrophic current"""
+        """ f=0 and gamma=0 for the geostrophic current"""
+
         u_spec, v_spec, vel_spec, freq = self.velocity_spectrum(u, v)
         plt.figure(figsize=(10, 6))
 
@@ -55,11 +60,15 @@ class Spectral_Particles_Analysis:
         plt.loglog(freq, u_spec, label="Zonal")
         plt.loglog(freq, v_spec, label="Meridional")
 
-        plt.xlabel("Frequency (Hz)")
+        plt.xlabel("Frequency (d^-1)")
         plt.ylabel("Spectral Density")
         plt.title("Velocity Spectral Density in frequency")
         plt.grid(True, which="both", linestyle="--", linewidth=0.5)
         plt.legend(fontsize=12)
         plt.tight_layout()
 
-        plt.show()
+        if savefig:
+            plt.savefig(f"{filepath}Velocity_Spectrum{f}-{gamma}.png")
+
+        else:
+            plt.show()
