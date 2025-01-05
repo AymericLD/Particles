@@ -305,12 +305,10 @@ class Bower_StreamFunction_with_inertial_waves(StreamFunction):
         y_c = A * sp.sin(k * (x - c_x * t))
         alpha = sp.atan(A * k * sp.cos(k * (x - c_x * t)))
         psi = psi_0 * (1 - sp.tanh((y - y_c) / (width / sp.cos(alpha))))
-        v = sp.diff(psi, x) * (1 - gamma * sp.cos(f * t)) - sp.diff(
-            psi, y
-        ) * gamma * sp.sin(f * t)
-        u = -sp.diff(psi, y) * (1 - gamma * sp.cos(f * t)) - sp.diff(
-            psi, x
-        ) * gamma * sp.sin(f * t)
+        dpsi_dx = sp.diff(psi, x)
+        dpsi_dy = sp.diff(psi, y)
+        v = dpsi_dx * (1 - gamma * sp.cos(f * t)) - dpsi_dy * gamma * sp.sin(f * t)
+        u = -dpsi_dy * (1 - gamma * sp.cos(f * t)) - dpsi_dx * gamma * sp.sin(f * t)
         v_fixed = v.subs(
             {
                 psi_0: self.psi_0,
