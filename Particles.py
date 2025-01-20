@@ -10,6 +10,7 @@ from Stream_Functions import (
     Bower_StreamFunction_in_moving_frame,
     Cellular_Flow,
     Bower_StreamFunction_with_inertial_waves,
+    Axisymmetric_Vortex,
 )
 from Spectral_Analysis import Spectral_Particles_Analysis
 import time
@@ -24,17 +25,26 @@ class Evolution_Particles:
     stream_function: StreamFunction
     time_step: float
     t_final: float
-    particle_number: float
+    num_pairs: float
+    x_min_init: float
+    x_max_init: float
+    y_min_init: float
+    y_max_init: float
     x_min: int
     x_max: int
     y_min: int
     y_max: int
+    initial_separation: float
 
     def __post_init__(self) -> None:
         if not ((self.x_max - self.x_min) % self.stream_function.L == 0):
             raise ValueError(
                 "Computationnal domain does not have the flow periodicity in the x direction"
             )
+
+    @cached_property
+    def particle_number(self):
+        return 2 * self.num_pairs
 
     @cached_property
     def initial_conditions(self):
@@ -46,22 +56,24 @@ class Evolution_Particles:
 
     @cached_property
     def initial_conditions_pairs(self):
-        initial_separation = 5
-        if self.particle_number % 2 != 0:
-            raise ValueError(
-                "Cannot define pairs of particles with an odd number of particles"
-            )
-        num_pairs = self.particle_number // 2
-        ic = np.zeros((self.particle_number, 2))
-        ic[:num_pairs, 0] = np.linspace(0, 800, num_pairs)
-        ic[:num_pairs, 1] = np.linspace(-150, 150, num_pairs)
-        theta = np.random.uniform(0, 2 * np.pi, size=num_pairs)
-        dx = initial_separation * np.cos(theta)
-        dy = initial_separation * np.sin(theta)
-        ic[num_pairs:, 0] = ic[:num_pairs, 0] + dx
-        ic[num_pairs:, 1] = ic[:num_pairs, 1] + dy
+        ic = np.zeros((2 * self.num_pairs, 2))
+        x = np.linspace(self.x_min_init, self.x_max_init, int(np.sqrt(self.num_pairs)))
+        y = np.linspace(self.y_min_init, self.y_max_init, int(np.sqrt(self.num_pairs)))
+        X, Y = np.meshgrid(x, y)
+        ic[: self.num_pairs, 0] = np.ravel(X)
+        ic[: self.num_pairs, 1] = np.ravel(Y)
+        theta = np.random.uniform(0, 2 * np.pi, size=self.num_pairs)
+        dx = self.initial_separation * np.cos(theta)
+        dy = self.initial_separation * np.sin(theta)
+        ic[self.num_pairs :, 0] = ic[: self.num_pairs, 0] + dx
+        ic[self.num_pairs :, 1] = ic[: self.num_pairs, 1] + dy
 
         return ic
+
+    @cached_property
+    def print_initial_conditiosn(self):
+        plt.plot(self.ic[:, 0], self.ic[:, 1], ".k")
+        plt.show()
 
     def RHS(self, t: float, y: NDArray) -> NDArray:
         r = y.reshape((self.particle_number, 2))  # Use a N*2 matrix to handle the ODE
@@ -95,8 +107,12 @@ class Evolution_Particles:
         if PBC:
             for i in range(len(t_eval)):
                 r[:, :, i] = self.apply_periodic_boundary_conditions(r[:, :, i])
-        x = r[:, 0, :]
-        y = r[:, 1, :]
+        if isinstance(self.stream_function, Axisymmetric_Vortex):
+            x = r[:, 0, :] * np.cos(r[:, 1, :])
+            y = r[:, 0, :] * np.sin(r[:, 1, :])
+        else:
+            x = r[:, 0, :]
+            y = r[:, 1, :]
         times = sol.t
         return x, y, times
 
@@ -169,7 +185,7 @@ class Evolution_Particles:
     def plot_trajectories(
         self, name: str, savefig: bool, streamlines: str, filepath: str
     ):
-        x, y, times = self.solve_ODE(PBC=True)
+        x, y, times = self.solve_ODE(PBC=False)
         fig, ax = plt.subplots()
         ax.set_xlim(self.x_min, self.x_max)
         ax.set_ylim(self.y_min, self.y_max)
