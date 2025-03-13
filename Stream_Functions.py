@@ -156,7 +156,7 @@ class Bower_StreamFunction_in_moving_frame(StreamFunction):
         psi_0, A, k, width, c_x = sp.symbols("psi_0 A k width c_x")
         y_c = A * sp.sin(k * x)
         alpha = sp.atan(A * k * sp.cos(k * x))
-        psi = psi_0 * (1 - sp.tanh((y - y_c) / (width / sp.cos(alpha))))
+        psi = psi_0 * (1 - sp.tanh((y - y_c) / (width / sp.cos(alpha)))) + c_x * y
         v = sp.diff(psi, x)
         u = -sp.diff(psi, y)
         v_fixed = v.subs(
@@ -334,6 +334,85 @@ class Bower_StreamFunction_with_inertial_waves(StreamFunction):
         v_func = sp.lambdify((x, y, t), v_fixed, modules=["numpy"])
         u_func = sp.lambdify((x, y, t), u_fixed, modules=["numpy"])
         return (u_func, v_func)
+
+    def plot_stream_function_contours(
+        self,
+        x_domain: NDArray,
+        y_domain: NDArray,
+        x: NDArray,
+        y: NDArray,
+        savefig: bool,
+        filepath: str,
+    ):
+        X, Y = np.meshgrid(x_domain, y_domain)
+        Z = np.vectorize(self.stream_function)(X, Y)
+
+        plt.figure(figsize=(8, 6))
+        # For plotting the contour of the stream function at levels given by the trajectories
+        # W = np.vectorize(self.stream_function)(x, y)
+        # levels = np.sort(W)
+        levels = np.linspace(Z.min(), Z.max(), 20)
+        contour = plt.contour(X, Y, Z, levels=levels, cmap="viridis")
+        plt.colorbar(contour, label="Stream function value (ψ)")
+        plt.xlabel("x")
+        plt.ylabel("y")
+        plt.title("Streamlines in moving frame")
+        if savefig:
+            plt.savefig(f"{filepath}Streamlines.png")
+        plt.show()
+
+
+@dataclass(frozen=True)
+class Axisymmetric_Vortex(StreamFunction):
+    """Streamfunction of an axisymmetric vortex with given vorticity, with inertial waves"""
+
+    L: float
+    R: float
+    zeta: float
+    gamma: float
+
+    def stream_function(self, r, theta, t):
+        if r < self.R:
+            return (self.zeta * r**2) / 4
+        else:
+            return ((self.zeta * self.R**2) / 2) * np.log(r / self.R) + (
+                self.zeta * self.R**2
+            ) / 4
+
+    @cached_property
+    def derivative(self):
+        x, y, t = sp.symbols("x y t")
+        L, R, zeta, gamma = sp.symbols("L R zeta gamma")
+        r = sp.sqrt(x**2 + y**2)
+        psi = sp.Piecewise(
+            ((zeta * r**2) / 4, r < R),
+            (((zeta * R**2) / 2) * sp.ln(r / R) + (zeta * R**2) / 4, r >= R),
+        )
+        v = sp.diff(psi, x)
+        u = -sp.diff(psi, y)
+        u += gamma * sp.cos(2 * sp.pi * zeta * t)
+        v += gamma * sp.sin(2 * sp.pi * zeta * t)
+        v_fixed = v.subs({L: self.L, R: self.R, zeta: self.zeta, gamma: self.gamma})
+        u_fixed = u.subs({L: self.L, R: self.R, zeta: self.zeta, gamma: self.gamma})
+        v_func = sp.lambdify((x, y, t), v_fixed, modules=["numpy"])
+        u_func = sp.lambdify((x, y, t), u_fixed, modules=["numpy"])
+        return (u_func, v_func)
+
+    @cached_property
+    def derivative_verification(self):
+        x, y, t = sp.symbols("x y t")
+        L, R, zeta, gamma = sp.symbols("L R zeta gamma")
+        r = sp.sqrt(x**2 + y**2)
+        psi = sp.Piecewise(
+            ((zeta * r**2) / 4, r < R),
+            (((zeta * R**2) / 2) * sp.ln(r / R) + (zeta * R**2) / 4, r >= R),
+        )
+        v = sp.diff(psi, x)
+        u = -sp.diff(psi, y)
+        v += gamma * sp.sin(2 * sp.pi * zeta * t)
+        u += gamma * sp.cos(2 * sp.pi * zeta * t)
+        print("u=", u)
+        print("v=", v)
 
     def plot_stream_function_contours(
         self,

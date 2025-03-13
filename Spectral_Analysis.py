@@ -3,12 +3,14 @@ import matplotlib.pyplot as plt
 from scipy.signal import get_window
 from dataclasses import dataclass
 from functools import cached_property
+from Stream_Functions import StreamFunction
 
 
 @dataclass(frozen=True)
 class Spectral_Particles_Analysis:
     """Spectral Analysis of particles dispersion in a given flow"""
 
+    stream_function: StreamFunction
     time_step: float
     t_final: float
     num_particles: int
@@ -31,16 +33,17 @@ class Spectral_Particles_Analysis:
 
         frequencies_u = np.fft.fftfreq(N, self.time_step)
         freq = frequencies_u[1 : N // 2]
+        scale = np.sum(window**2)
 
         # Spectrum for u
 
         u_spec_particles = np.abs(fft_u[1 : N // 2]) ** 2
-        u_spec = np.sum(u_spec_particles, axis=1) / self.num_particles
+        u_spec = np.sum(u_spec_particles, axis=1) / (self.num_particles * scale)
 
         # Spectrum for v
 
         v_spec_particles = np.abs(fft_v[1 : N // 2]) ** 2
-        v_spec = np.sum(v_spec_particles, axis=1) / self.num_particles
+        v_spec = np.sum(v_spec_particles, axis=1) / (self.num_particles * scale)
 
         # Velocity Spectrum
 
@@ -62,11 +65,13 @@ class Spectral_Particles_Analysis:
 
         # plt.loglog(freq, vel_spec, label="Total")
         # plt.loglog(freq, u_spec, label="Zonal")
-        plt.loglog(freq, v_spec, label=f"Meridional,gamma={gamma}")
-        plt.plot([f / (2 * np.pi), f / (2 * np.pi)], [0, 1e12])
+        plt.loglog(
+            freq, v_spec, label=f"num_particles={self.num_particles},gamma={gamma}"
+        )
+        # plt.plot([f / (2 * np.pi), f / (2 * np.pi)], [0, 1e12])
 
         if savefig != 2:
-            plt.xlabel("Frequency (d^-1)")
+            plt.xlabel(r"Frequency ($d^{-1}$)")
             plt.ylabel("Spectral Density")
             plt.title("Velocity Spectral Density in frequency")
             plt.grid(True, which="both", linestyle="--", linewidth=0.5)
@@ -75,7 +80,7 @@ class Spectral_Particles_Analysis:
 
         if savefig == 0:
             plt.savefig(
-                f"{filepath}Velocity_Spectrum,f={f}gamma={gamma}num_particles={self.num_particles}.png"
+                f"{filepath}Velocity_Spectrum,stream_function={self.stream_function},f={f}gamma={gamma}num_particles={self.num_particles}.png"
             )
         elif savefig == 1:
             plt.show()

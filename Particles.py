@@ -62,7 +62,8 @@ class Evolution_Particles:
         X, Y = np.meshgrid(x, y)
         ic[: self.num_pairs, 0] = np.ravel(X)
         ic[: self.num_pairs, 1] = np.ravel(Y)
-        theta = np.random.uniform(0, 2 * np.pi, size=self.num_pairs)
+        # theta = np.random.uniform(0, 2 * np.pi, size=self.num_pairs)
+        theta = 0
         dx = self.initial_separation * np.cos(theta)
         dy = self.initial_separation * np.sin(theta)
         ic[self.num_pairs :, 0] = ic[: self.num_pairs, 0] + dx
@@ -71,8 +72,12 @@ class Evolution_Particles:
         return ic
 
     @cached_property
-    def print_initial_conditiosn(self):
-        plt.plot(self.ic[:, 0], self.ic[:, 1], ".k")
+    def print_initial_conditions(self):
+        plt.plot(
+            self.initial_conditions_pairs[:, 0],
+            self.initial_conditions_pairs[:, 1],
+            ".k",
+        )
         plt.show()
 
     def RHS(self, t: float, y: NDArray) -> NDArray:
@@ -107,12 +112,8 @@ class Evolution_Particles:
         if PBC:
             for i in range(len(t_eval)):
                 r[:, :, i] = self.apply_periodic_boundary_conditions(r[:, :, i])
-        if isinstance(self.stream_function, Axisymmetric_Vortex):
-            x = r[:, 0, :] * np.cos(r[:, 1, :])
-            y = r[:, 0, :] * np.sin(r[:, 1, :])
-        else:
-            x = r[:, 0, :]
-            y = r[:, 1, :]
+        x = r[:, 0, :]
+        y = r[:, 1, :]
         times = sol.t
         return x, y, times
 
@@ -121,7 +122,17 @@ class Evolution_Particles:
         x, y, times = self.solve_ODE(PBC=True)
         dx_dt = np.diff(x) / np.diff(times)
         dy_dt = np.diff(y) / np.diff(times)
-        return (dx_dt, dy_dt)
+        return (dx_dt, dy_dt, times)
+
+    @cached_property
+    def plot_velocity_profiles(self):
+        plt.figure(figsize=(10, 6))
+        u = self.velocity_profiles[0]
+        v = self.velocity_profiles[1]
+        times = self.velocity_profiles[2]
+        plt.plot(times, u)
+        plt.plot(times, v)
+        plt.show()
 
     @cached_property
     def verification_in_moving_frame(self):
@@ -190,7 +201,7 @@ class Evolution_Particles:
         ax.set_xlim(self.x_min, self.x_max)
         ax.set_ylim(self.y_min, self.y_max)
         for i in range(self.particle_number):
-            plt.scatter(x[i, :], y[i, :])
+            plt.plot(x[i, :], y[i, :])
         ax.set_xlabel("x (km)")
         ax.set_ylabel("y (km)")
         ax.set_title(
@@ -207,7 +218,7 @@ class Evolution_Particles:
             y_initial = self.initial_conditions[:, 1]
             W = np.vectorize(self.stream_function.stream_function)(x_initial, y_initial)
             levels = np.sort(W)
-            contour = plt.contour(X, Y, Z, levels=levels, cmap="viridis")
+            contour = plt.contour(X, Y, Z, "k--", levels=levels, cmap="viridis")
             plt.colorbar(contour, label="Stream function value (ψ)")
 
         if savefig:
